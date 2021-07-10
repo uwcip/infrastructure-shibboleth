@@ -1,0 +1,108 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wwwlab
+  namespace: sites
+  labels:
+    service: wwwlab
+    app.kubernetes.io/name: wwwlab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      service: wwwlab
+  template:
+    metadata:
+      labels:
+        service: wwwlab
+        app.kubernetes.io/name: wwwlab
+    spec:
+      nodeSelector:
+        role: worker
+      restartPolicy: Always
+      containers:
+
+      # run the actual web server
+      - name: httpd
+        image: cr.lab.cip.uw.edu/sites/www.lab.cip.uw.edu:v1.1.0
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: sp-conf
+          mountPath: /etc/shibboleth.shared
+          readOnly: true
+        - name: sp-keys
+          mountPath: /data/keys
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 250m
+            memory: 128Mi
+
+      # run the shibboleth daemon
+      - name: shibboleth
+        image: ghcr.io/uwcip/shibboleth:v1.0.0
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: sp-conf
+          mountPath: /etc/shibboleth.shared
+          readOnly: true
+        - name: sp-keys
+          mountPath: /data/keys
+          readOnly: true
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+      # the shibboleth configuration file is in the "httpd" container. this
+      # init container copies the shibboleth configuration to the shared volume
+      # (called "sp-conf") where both the "httpd" and "shibboleth" containers
+      # can access it.
+      initContainers:
+      - name: initialization
+        image: cr.lab.cip.uw.edu/sites/www.lab.cip.uw.edu:v1.1.0
+        imagePullPolicy: Always
+        command: ["/initialization"]
+        volumeMounts:
+        - name: sp-conf
+          mountPath: /etc/shibboleth.shared
+
+      volumes:
+      - name: sp-conf
+        emptyDir: {}
+      - name: sp-keys
+        hostPath:
+          type: Directory
+          path: /data/shibboleth/wwwlab
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: wwwlab
+  namespace: sites
+  labels:
+    app.kubernetes.io/name: wwwlab
+spec:
+  type: ClusterIP
+  # keep clients sticky so that shib works better
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      # keep a client sticky for a full day!
+      timeoutSeconds: 86400
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    service: wwwlab

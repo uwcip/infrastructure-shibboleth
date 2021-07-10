@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# NOTE: put this in the root of your Apache container
+
+# exit on any error
+set -e
+
+exec cp -prf /etc/shibboleth/* /etc/shibboleth.shared
