@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# fail on errors
+set -e
+
+# remove any existing configurations
+rm -rf /etc/shibboleth
+mkdir -p /etc/shibboleth
+
+# the shared configuration should come from the apache container
+cp -prf /etc/shibboleth.shared/* /etc/shibboleth || true
+
+# the local configuration is any specific customizations that we have
+cp -prf /etc/shibboleth.local/* /etc/shibboleth || true
+
+exec /usr/sbin/shibd -F
