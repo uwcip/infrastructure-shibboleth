@@ -8,10 +8,17 @@ RUN apt-get -q update && apt-get -y upgrade && \
     apt-get install -y --no-install-recommends shibboleth-sp-utils openssl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# add specific configurations and links to custom configurations
-COPY shibd.logger /etc/shibboleth/shibd.logger
-RUN mkdir -p /etc/shibboleth.local && cd /etc/shibboleth \
-    ln -sf /etc/shibboleth.local/shibboleth2.xml && \
-    ln -sf /etc/shibboleth.local/attribute-map.xml
+# add any custom overrides. the actual configuration should come from the other
+# container in the pod (e.g. attribute-map.xml, shibboleth2.xml) but anything
+# in this directory will overwrite *those* configurations, too.
+RUN mkdir -p /etc/shibboleth.local /etc/shibboleth.shared
+COPY conf /etc/shibboleth.local
 
-ENTRYPOINT ["/usr/sbin/shibd", "-F"]
+# before starting shibd, the entrypoint will copy the contents of
+# /etc/shibboleth.local and /etc/shibboleth.shared to /etc/shibboleth.
+# this way the other container (the apache container) in the pod can give us
+# the same configuraiton that it is running.
+COPY entrypoint /entrypoint
+RUN chmod +x /entrypoint
+
+ENTRYPOINT ["/entrypoint"]
