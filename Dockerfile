@@ -4,7 +4,7 @@ FROM debian:bullseye-slim@sha256:94133c8fb81e4a310610bc83be987bda4028f93ebdbbca5
 LABEL org.opencontainers.image.source=https://github.com/uwcip/infrastructure-shibboleth
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get -q update && \
+RUN apt-get -q update && apt-get -y upgrade && \
     apt-get install -y --no-install-recommends shibboleth-sp-utils openssl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
